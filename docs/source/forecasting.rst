@@ -1,169 +1,172 @@
 .. _forecasting:
 
-Forecasting
-===========
+Prévision
+=========
 
-This section covers the seven individual models, the hybrid and ensemble strategies,
-trend stabilisation, bias correction, and probabilistic interval estimation.
+Cette section couvre les sept modèles individuels, les stratégies hybrides et d'ensemble,
+la stabilisation de tendance, la correction de biais et l'estimation des intervalles
+probabilistes.
 
-All model code lives in ``src/models/``.  Calibration and post-processing helpers are
-in ``src/forecasting/``.
+Tout le code des modèles se trouve dans ``src/models/``. Les utilitaires de calibration
+et de post-traitement sont dans ``src/forecasting/``.
 
 ----
 
-Base interface
---------------
+Interface de base
+-----------------
 
-Every model inherits from ``BaseForecaster`` (``src/models/base.py``):
+Chaque modèle hérite de ``BaseForecaster`` (``src/models/base.py``) :
 
 .. code-block:: python
 
    class BaseForecaster(ABC):
        name: str
 
-       def fit(self, y: pd.Series, exog: pd.DataFrame | None = None) -> "BaseForecaster":
+       def fit(self, y: pd.Series,
+               exog: pd.DataFrame | None = None) -> "BaseForecaster":
            ...
 
-       def predict(
-           self, steps: int,
-           exog: pd.DataFrame | None = None,
-           index: pd.DatetimeIndex | None = None,
-       ) -> pd.Series:
+       def predict(self, steps: int,
+                   exog: pd.DataFrame | None = None,
+                   index: pd.DatetimeIndex | None = None) -> pd.Series:
            ...
 
-``fit()`` always receives the **training target** ``y`` and optionally the full training
-frame ``exog`` (required for SARIMAX and XGBoost).
-``predict()`` returns a ``pd.Series`` indexed by the requested future ``DatetimeIndex``.
+``fit()`` reçoit toujours la **cible d'entraînement** ``y`` et optionnellement le
+DataFrame d'entraînement complet ``exog`` (obligatoire pour SARIMAX et XGBoost).
+``predict()`` retourne une ``pd.Series`` indexée par le ``DatetimeIndex`` futur demandé.
 
 ----
 
 ARIMA — ``arima_model.py``
 --------------------------
 
-``ARIMAForecaster`` wraps ``pmdarima.auto_arima`` with ADF pre-check and ACF/PACF
-diagnostics.
+``ARIMAForecaster`` encapsule ``pmdarima.auto_arima`` avec un pré-contrôle ADF et des
+diagnostics ACF/PACF.
 
-**Order selection:**
+**Sélection des ordres :**
 
 .. code-block:: python
 
    auto_arima(y, seasonal=False, stepwise=True,
               max_p=3, max_q=3, d=None)
 
-``d`` is determined automatically from the ADF test result.  Given the ADF statistic of
-+2.30 and p-value of 0.999, ``d = 1`` is selected in every fold.
+``d`` est déterminé automatiquement à partir du test ADF. Étant donné la statistique
+ADF de +2,30 et la p-valeur de 0,999, ``d = 1`` est sélectionné dans chaque fold.
 
-**Diagnostics saved on fit:**
+**Diagnostics sauvegardés à l'ajustement :**
 
-* ``results/figures/arima_adf.txt`` — ADF stat and p-value
-* ``results/figures/arima_acf_pacf.png`` — ACF and PACF to lag 24
+* ``results/figures/arima_adf.txt`` — statistique ADF et p-valeur
+* ``results/figures/arima_acf_pacf.png`` — ACF et PACF jusqu'au lag 24
 
-**Trend stabilisation:** applied (``STABILIZE_MODELS`` contains ``"ARIMA"``).
+**Stabilisation de tendance :** appliquée (``STABILIZE_MODELS`` contient ``"ARIMA"``).
 
-**Log-target experiment:** ARIMA is the best log-space model (RMSE 1 368 vs 1 536
-in level space); used in log space in the final production run.
+**Expérience log-cible :** ARIMA est le meilleur modèle en espace log (RMSE 1 368 vs
+1 536 en espace niveau) ; utilisé en espace log dans l'exécution finale de production.
 
 ----
 
 SARIMA — ``sarima_model.py``
 -----------------------------
 
-``SARIMAForecaster`` extends ``ARIMAForecaster`` with ``seasonal=True, m=12``:
+``SARIMAForecaster`` étend ``ARIMAForecaster`` avec ``seasonal=True, m=12`` :
 
 .. code-block:: python
 
    auto_arima(y, seasonal=True, m=12,
               max_P=2, max_Q=2, stepwise=True)
 
-The ACF plot confirms slow decay and PACF shows a single significant spike at lag 1,
-consistent with an ARIMA(1,1,0) × (1,1,0)₁₂ structure.
+Le graphique ACF confirme une décroissance lente et le PACF montre un seul pic
+significatif au lag 1, cohérent avec une structure ARIMA(1,1,0)×(1,1,0)₁₂.
 
-**Trend stabilisation:** applied.
+**Stabilisation de tendance :** appliquée.
 
 ----
 
 SARIMAX — ``sarimax_model.py``
 -------------------------------
 
-``SARIMAXForecaster`` is the best individual model (mean RMSE 1 478 MAD over 10 folds).
+``SARIMAXForecaster`` est le meilleur modèle individuel (RMSE moyen 1 478 MAD sur
+10 folds).
 
-It augments SARIMA with exogenous regressors selected in this priority order:
+Il augmente SARIMA avec des régresseurs exogènes sélectionnés dans cet ordre de
+priorité :
 
 1. ``usd_mad``
-2. All five Moroccan event columns
-3. Available macro columns
+2. Les cinq colonnes d'événements marocains
+3. Les colonnes macro disponibles
 
-**Coefficient estimates (final full-sample fit):**
+**Estimations des coefficients (fit final sur l'échantillon complet) :**
 
 .. list-table::
    :header-rows: 1
    :widths: 30 20 50
 
-   * - Parameter
-     - Estimate
-     - Interpretation
-   * - ``usd_mad`` (x1)
-     - +1 048.5
-     - Dominant FX effect: 1 MAD weakening → +1 048 MAD/oz
-   * - ``eid_aladha`` (x3)
-     - +70.7
-     - Aïd Al-Adha demand spike
-   * - ``wedding_season`` (x4)
-     - +48.1
-     - Bridal gold demand
-   * - ``ramadan`` (x2)
-     - +22.0
-     - Pre-Aïd jewellery purchases
-   * - ``dxy_index`` (x11)
-     - −79.2
-     - Strong USD reduces gold in MAD terms
-   * - ``oil_brent_usd`` (x10)
-     - −17.7
-     - Risk-on rotation away from gold
-   * - ``fed_funds_rate`` (x8)
-     - −0.29
-     - Opportunity cost of holding gold
+   * - Paramètre
+     - Estimation
+     - Interprétation
+   * - ``usd_mad``
+     - +1 048,5
+     - Effet FX dominant : 1 MAD de dépréciation → +1 048 MAD/once
+   * - ``eid_aladha``
+     - +70,7
+     - Pic de demande lors de l'Aïd Al-Adha
+   * - ``wedding_season``
+     - +48,1
+     - Demande de bijoux nuptiaux
+   * - ``ramadan``
+     - +22,0
+     - Achats de bijoux avant l'Aïd
+   * - ``dxy_index``
+     - −79,2
+     - Un dollar fort réduit l'or en termes MAD
+   * - ``oil_brent_usd``
+     - −17,7
+     - Rotation risk-on loin de l'or
+   * - ``fed_funds_rate``
+     - −0,29
+     - Coût d'opportunité de détenir de l'or
    * - ``ma.L1``
-     - +0.166
-     - MA(1) residual correction term
+     - +0,166
+     - Terme de correction résiduelle MA(1)
 
-**Bootstrap R² CI (OOS pooled):** 0.859 [0.827 – 0.892]
+**IC bootstrap R² (OOS poolé) :** 0,859 [0,827 – 0,892]
 
-**Test exogenous in backtesting:** When ``STRICT_EVALUATION_MODE = True``, the test-fold
-exogenous values are taken from the **observed data**, not extrapolated.  This avoids
-inflating backtest performance with future macro knowledge.
+**Variables exogènes de test lors du backtesting :** Quand ``STRICT_EVALUATION_MODE = True``,
+les valeurs exogènes du fold de test sont tirées des **données observées**, pas extrapolées.
+Cela évite de gonfler les performances du backtest avec des connaissances macro futures.
 
 ----
 
 Prophet — ``prophet_model.py``
 -------------------------------
 
-``ProphetForecaster`` uses Meta's Prophet library with:
+``ProphetForecaster`` utilise la bibliothèque Prophet de Meta avec :
 
 * ``yearly_seasonality = True``
-* Custom monthly seasonality (Fourier order 5)
-* All five Moroccan event columns added as additive regressors
+* Saisonnalité mensuelle personnalisée (ordre de Fourier 5)
+* Les cinq colonnes d'événements marocains ajoutées comme régresseurs additifs
 
-**Weaknesses observed in backtest:**
+**Faiblesses observées lors du backtest :**
 
-Prophet achieves a mean MAPE of **12.3 %** — nearly double that of SARIMAX.  The main
-failure mode is inability to track the sharp regime shifts in the gold price (the 2020
-COVID shock, the 2022 commodity spike, the 2024–2026 bull run).  Prophet's piecewise-linear
-trend cannot adapt quickly enough at fold boundaries.
+Prophet atteint un MAPE moyen de **12,3 %** — presque le double de SARIMAX. Le
+principal mode d'échec est son incapacité à suivre les changements brusques de régime
+du prix de l'or (choc COVID 2020, pic de matières premières 2022, hausse 2024–2026).
+La tendance linéaire par morceaux de Prophet ne peut pas s'adapter assez rapidement
+aux frontières des folds.
 
-**Log-target experiment:** Prophet benefits slightly from log space (RMSE 2 292 vs 2 406);
-used in log space in production.
+**Expérience log-cible :** Prophet bénéficie légèrement de l'espace log (RMSE 2 292
+vs 2 406) ; utilisé en espace log en production.
 
 ----
 
 XGBoost — ``xgboost_model.py``
 -------------------------------
 
-``XGBoostForecaster`` performs **recursive multi-step forecasting**: at each future step,
-the predicted value is appended to the working history and features are recomputed before
-predicting the next step.
+``XGBoostForecaster`` effectue une **prévision multi-pas récursive** : à chaque pas
+futur, la valeur prédite est ajoutée à l'historique de travail et les features sont
+recalculées avant de prédire le pas suivant.
 
-**Model hyperparameters:**
+**Hyperparamètres du modèle :**
 
 .. code-block:: python
 
@@ -176,190 +179,192 @@ predicting the next step.
        random_state=42,
    )
 
-**Scaler:** ``sklearn.preprocessing.StandardScaler`` fit on training features only.
+**Normalisateur :** ``sklearn.preprocessing.StandardScaler`` ajusté sur les features
+d'entraînement uniquement.
 
-**Feature set:** ~85 columns (see :ref:`feature_engineering`).  Features are frozen after
-the final full-sample fit to guarantee identical column ordering at inference time.
+**Ensemble de features :** ~85 colonnes (voir :ref:`feature_engineering`). Les features
+sont gelées après le fit final sur l'échantillon complet pour garantir un ordre de
+colonnes identique à l'inférence.
 
-**SHAP explanations:** If ``shap`` is installed, a SHAP summary plot is saved to
-``results/figures/xgboost_shap_summary.png`` after fitting.
+**Valeurs SHAP :** Si ``shap`` est installé, un graphique de synthèse SHAP est sauvegardé
+dans ``results/figures/xgboost_shap_summary.png`` après l'ajustement.
 
-**Key weaknesses:**
+**Faiblesses principales :**
 
-* Recursive drift accumulates with horizon — reliability decreases beyond 6 months.
-* Log-target transformation degrades performance significantly (RMSE 16 628 vs 1 759
-  in level space); XGBoost is always trained in level space.
-
-**Test alignment guard:**
-
-.. code-block:: python
-
-   pytest tests/test_xgboost_alignment.py -v
-
-Verifies that (a) XGBoost raises ``ValueError`` if ``y`` and ``exog`` index are
-mismatched, and (b) the combined train+test frame is never passed to ``fit()``.
+* La dérive récursive s'accumule avec l'horizon — la fiabilité diminue au-delà de
+  6 mois.
+* La transformation log-cible dégrade significativement les performances (RMSE 16 628
+  vs 1 759 en espace niveau) ; XGBoost est toujours entraîné en espace niveau.
 
 ----
 
 LSTM — ``lstm_model.py``
 -------------------------
 
-``LSTMForecaster`` is a **univariate deep-learning benchmark** — it uses only the target
-series (no exogenous regressors).
+``LSTMForecaster`` est un **benchmark d'apprentissage profond univarié** — il utilise
+uniquement la série cible (pas de régresseurs exogènes).
 
-**Architecture:**
+**Architecture :**
 
 .. code-block:: text
 
    LSTM(64, return_sequences=True)
-   Dropout(0.2)
+   Dropout(0,2)
    LSTM(32, return_sequences=False)
-   Dropout(0.2)
+   Dropout(0,2)
    Dense(16, relu)
    Dense(1)
 
-**Training:**
+**Entraînement :**
 
-* Lookback window: 12 months
-* Optimiser: Adam (lr = 0.001)
-* Loss: MSE
-* Callbacks: ``EarlyStopping(patience=12)``, ``ReduceLROnPlateau(factor=0.5, patience=5)``
-* Train / validation split: 85 % / 15 % (time-ordered, no shuffle)
-* Scaler: ``MinMaxScaler`` fit on training values only
+* Fenêtre de lookback : 12 mois
+* Optimiseur : Adam (lr = 0,001)
+* Perte : MSE
+* Callbacks : ``EarlyStopping(patience=12)``, ``ReduceLROnPlateau(factor=0.5, patience=5)``
+* Découpage entraînement/validation : 85 % / 15 % (ordonné dans le temps, pas de mélange)
+* Normalisateur : ``MinMaxScaler`` ajusté sur les valeurs d'entraînement uniquement
 
-**Forecast mode:** Recursive (auto-regressive), like XGBoost.
+**Mode de prévision :** Récursif (auto-régressif), comme XGBoost.
 
-**Interpretation:** The LSTM achieves a bootstrap R² of 0.750 — respectable for a
-univariate model with no macro information, but clearly below the exogenous statistical
-models.
+**Interprétation :** Le LSTM atteint un R² bootstrap de 0,750 — respectable pour un
+modèle univarié sans information macro, mais clairement en dessous des modèles
+statistiques avec variables exogènes.
 
 ----
 
-Hybrid ARIMA + XGBoost — ``ensemble_model.py``
------------------------------------------------
+Hybride ARIMA + XGBoost — ``ensemble_model.py``
+------------------------------------------------
 
-``ARIMAXGBHybrid`` implements **residual modelling**:
+``ARIMAXGBHybrid`` implémente la **modélisation des résidus** :
 
-1. ARIMA is fit on the training target to capture linear structure.
-2. In-sample residuals ``y - ŷ_ARIMA`` are computed.
-3. XGBoost is fit on the residuals, using the full feature matrix as input.
-4. Forecast = ARIMA point forecast + XGBoost residual correction.
+1. ARIMA est ajusté sur la cible d'entraînement pour capturer la structure linéaire.
+2. Les résidus en échantillon ``y - ŷ_ARIMA`` sont calculés.
+3. XGBoost est ajusté sur les résidus, en utilisant la matrice complète de features
+   comme entrée.
+4. Prévision = prévision ponctuelle ARIMA + correction de résidus XGBoost.
 
-This design reduces the systematic bias of ARIMA (mean bias −865 → −772 MAD)
-while keeping the interpretable ARIMA trend structure.
+Cette conception réduit le biais systématique d'ARIMA (biais moyen −865 → −772 MAD)
+tout en conservant la structure de tendance ARIMA interprétable.
 
 ----
 
 Ensemble_Weighted (production) — ``ensemble_model.py``
-------------------------------------------------------
+-------------------------------------------------------
 
-``WeightedEnsembleForecaster`` blends three component models:
+``WeightedEnsembleForecaster`` combine trois modèles composants :
 
-* **SARIMAX** (~36 % weight)
-* **XGBoost** (~31 % weight)
-* **Hybrid ARIMA+XGBoost** (~33 % weight)
+* **SARIMAX** (~36 % de pondération)
+* **XGBoost** (~31 % de pondération)
+* **Hybride ARIMA+XGBoost** (~33 % de pondération)
 
-Weights are proportional to **1 / RMSE** from the rolling backtest:
+Les poids sont proportionnels à **1 / RMSE** du backtest glissant :
 
 .. code-block:: python
 
    from src.forecasting.calibration import inverse_rmse_weights, weighted_ensemble
 
-   weights = inverse_rmse_weights(metrics_bt, ["SARIMAX", "XGBoost", "Hybrid_ARIMA_XGBoost"])
-   ensemble_fc = weighted_ensemble(component_forecasts, weights)
+   poids = inverse_rmse_weights(metrics_bt,
+               ["SARIMAX", "XGBoost", "Hybrid_ARIMA_XGBoost"])
+   prevision_ensemble = weighted_ensemble(previsions_composants, poids)
 
-The ensemble is not evaluated in the rolling backtest (it is constructed *after* individual
-model evaluation).  It is the **recommended production model** because it averages out
-model-specific failure modes across volatility regimes.
-
-----
-
-Trend stabilisation — ``trend_stabilization.py``
--------------------------------------------------
-
-Long-horizon forecasts from ARIMA-family models tend to extrapolate the most recent
-momentum indefinitely, producing economically implausible paths (e.g. +30 % per year).
-The ``damp_forecast()`` function applies three corrections:
-
-1. **Exponential trend decay** — the linear trend component is multiplied by
-   :math:`\phi^h` where :math:`\phi = 0.92` and *h* is the horizon in months.
-2. **Mean-reversion blend** — each step is blended toward the recent 12-month mean-growth
-   path weighted by :math:`(1 - \phi^h)`.
-3. **Month-over-month cap** — the predicted change is clipped to ±4 % of the previous
-   step (``TREND_MAX_MONTHLY_PCT = 0.04``).
-
-**Applied to:** ``ARIMA``, ``SARIMA``, ``SARIMAX`` (``STABILIZE_MODELS`` frozenset).
+L'ensemble n'est pas évalué dans le backtest glissant (il est construit *après*
+l'évaluation des modèles individuels). C'est le **modèle recommandé en production**
+car il moyenne les modes d'échec spécifiques à chaque modèle selon les régimes
+de volatilité.
 
 ----
 
-Bias correction — ``calibration.py``
---------------------------------------
+Stabilisation de tendance — ``trend_stabilization.py``
+-------------------------------------------------------
 
-After rolling backtest, the mean out-of-sample prediction error (bias) is computed for
-each model:
+Les prévisions à long horizon des modèles de la famille ARIMA tendent à extrapoler
+indéfiniment le momentum le plus récent, produisant des trajectoires économiquement
+implausibles (ex. +30 % par an). La fonction ``damp_forecast()`` applique trois
+corrections :
+
+1. **Décroissance exponentielle de la tendance** — la composante de tendance linéaire
+   est multipliée par :math:`\phi^h` où :math:`\phi = 0{,}92` et *h* est l'horizon en mois.
+2. **Mélange de retour à la moyenne** — chaque pas est mélangé vers le chemin de
+   croissance moyen des 12 derniers mois, pondéré par :math:`(1 - \phi^h)`.
+3. **Plafond mois par mois** — la variation prédite est écrêtée à ±4 % du pas précédent
+   (``TREND_MAX_MONTHLY_PCT = 0.04``).
+
+**Appliqué à :** ``ARIMA``, ``SARIMA``, ``SARIMAX`` (frozenset ``STABILIZE_MODELS``).
+
+----
+
+Correction de biais — ``calibration.py``
+-----------------------------------------
+
+Après le backtest glissant, l'erreur de prévision hors échantillon moyenne (biais) est
+calculée pour chaque modèle :
 
 .. code-block:: python
 
    from src.forecasting.calibration import estimate_oos_bias, apply_bias_correction
 
-   bias = estimate_oos_bias(y_oos, y_pred)   # positive = overestimate
-   corrected = apply_bias_correction(forecast, bias)
+   biais = estimate_oos_bias(y_oos, y_pred)   # positif = surestimation
+   corrigee = apply_bias_correction(prevision, biais)
 
-OOS bias values (MAD per ounce):
+Valeurs de biais OOS (MAD par once) :
 
 .. list-table::
    :header-rows: 1
    :widths: 35 25 40
 
-   * - Model
-     - Bias (MAD)
+   * - Modèle
+     - Biais (MAD)
      - Direction
    * - SARIMAX
      - −797
-     - Under-forecast
-   * - Hybrid ARIMA+XGB
+     - Sous-estimation
+   * - Hybride ARIMA+XGB
      - −772
-     - Under-forecast (lowest)
+     - Sous-estimation (la plus faible)
    * - ARIMA
      - −865
-     - Under-forecast
+     - Sous-estimation
    * - SARIMA
      - −927
-     - Under-forecast
+     - Sous-estimation
    * - XGBoost
      - −1 438
-     - Under-forecast (strongest)
+     - Sous-estimation (la plus forte)
    * - LSTM
      - −1 573
-     - Under-forecast
+     - Sous-estimation
    * - Prophet
      - −1 100
-     - Under-forecast
+     - Sous-estimation
 
-All models systematically under-forecast during the 2024–2025 gold bull run.
-Bias correction shifts the production forecast upward by the estimated bias value.
+Tous les modèles sous-estiment systématiquement pendant la hausse de l'or 2024–2025.
+La correction de biais décale la prévision de production vers le haut de la valeur
+de biais estimée.
 
 ----
 
-Probabilistic intervals — ``probabilistic.py``
-------------------------------------------------
+Intervalles probabilistes — ``probabilistic.py``
+-------------------------------------------------
 
-Fan-chart confidence intervals are produced by **residual bootstrap**:
+Les intervalles de confiance en éventail sont produits par **bootstrap sur les résidus** :
 
-1. Sample *n_samples = 500* paths from the in-sample ARIMA residuals.
-2. For each path, add cumulative noise scaled by :math:`\sqrt{h / H}` to the point forecast.
-3. Report the 2.5th and 97.5th percentiles as the 95 % prediction interval.
+1. Échantillonnage de *n_samples = 500* trajectoires à partir des résidus ARIMA en
+   échantillon.
+2. Pour chaque trajectoire, ajout d'un bruit cumulatif mis à l'échelle par
+   :math:`\sqrt{h / H}` à la prévision ponctuelle.
+3. Les percentiles 2,5 et 97,5 forment l'intervalle de prévision à 95 %.
 
 .. code-block:: python
 
    from src.forecasting.probabilistic import residual_bootstrap_intervals
 
-   interval = residual_bootstrap_intervals(
-       point_forecast=fc,
+   intervalle = residual_bootstrap_intervals(
+       point_forecast=prevision,
        in_sample_residuals=arima.in_sample_residuals(),
        n_samples=500,
        alpha=0.05,
    )
 
-The interval widens with horizon, reflecting growing uncertainty in recursive forecasts.
-Results are saved to ``results/forecasts/forecast_intervals_2027_12.csv``.
+L'intervalle s'élargit avec l'horizon, reflétant l'incertitude croissante des
+prévisions récursives. Les résultats sont sauvegardés dans
+``results/forecasts/forecast_intervals_2027_12.csv``.

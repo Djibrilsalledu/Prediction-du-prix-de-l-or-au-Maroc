@@ -1,184 +1,193 @@
 .. _conclusion:
 
-Conclusion & Perspectives
-=========================
+Conclusion et perspectives
+==========================
 
-Summary of findings
---------------------
+Synthèse des résultats
+-----------------------
 
-This project built an academic-grade, fully reproducible pipeline for forecasting Moroccan
-gold prices at monthly frequency.  The main conclusions are:
+Ce projet a construit un pipeline académique entièrement reproductible pour prévoir les
+prix de l'or au Maroc à fréquence mensuelle. Les principales conclusions sont les
+suivantes :
 
-**1. SARIMAX is the best individual model**
+**1. SARIMAX est le meilleur modèle individuel**
 
-With a mean RMSE of **1 478 MAD**, mean MAPE of **6.49 %** and directional accuracy of
-**60.9 %** across 10 expanding-window folds, SARIMAX outperforms all other single models.
-The key drivers of this performance are:
+Avec un RMSE moyen de **1 478 MAD**, un MAPE moyen de **6,49 %** et une précision
+directionnelle de **60,9 %** sur 10 folds en fenêtre expansive, SARIMAX surpasse tous
+les autres modèles pris séparément. Les facteurs clés de cette performance sont :
 
-* Direct inclusion of the USD/MAD exchange rate (coefficient +1 048) — the dominant
-  short-run price driver.
-* Moroccan event regressors that capture predictable demand seasonality invisible to
-  univariate models.
-* The ``auto_arima`` order-selection procedure, which adapts ARIMA orders per fold.
+* L'inclusion directe du taux de change USD/MAD (coefficient +1 048) — le moteur
+  dominant des variations de prix à court terme.
+* Les régresseurs d'événements marocains qui capturent une saisonnalité prévisible
+  de la demande, invisible aux modèles univariés.
+* La procédure de sélection d'ordres ``auto_arima`` qui adapte les ordres ARIMA par fold.
 
-**2. Ensemble_Weighted is recommended for production**
+**2. Ensemble_Weighted est recommandé en production**
 
-The inverse-RMSE weighted blend of SARIMAX, XGBoost and Hybrid ARIMA+XGBoost achieves
-lower sensitivity to any single model's failure mode.  It converges smoothly toward
-~51 000 MAD/oz by December 2027 — an economically plausible path given trend damping.
+La combinaison pondérée par l'inverse du RMSE de SARIMAX, XGBoost et Hybride
+ARIMA+XGBoost réduit la sensibilité au mode d'échec de chaque modèle. Elle converge
+en douceur vers ~51 000 MAD/once en décembre 2027 — une trajectoire économiquement
+plausible grâce à l'amortissement de tendance.
 
-**3. Moroccan socio-cultural events have a quantifiable effect**
+**3. Les événements socio-culturels marocains ont un effet quantifiable**
 
-Event coefficients from the full-sample SARIMAX fit:
+Coefficients des événements issus du fit SARIMAX sur l'échantillon complet :
 
 .. list-table::
    :header-rows: 1
    :widths: 35 20 45
 
-   * - Event
+   * - Événement
      - Coefficient (MAD)
-     - Interpretation
-   * - Ramadan (x2)
-     - +22.0
-     - Pre-Aïd jewellery purchasing
-   * - Aïd Al-Adha (x3)
-     - +70.7
-     - Peak bridal gold demand
-   * - Wedding season (x4)
-     - +48.1
-     - 6-month peak season
-   * - Aïd Al-Fitr (x5)
-     - +28.1
-     - Gift-giving demand
+     - Interprétation
+   * - Ramadan
+     - +22,0
+     - Achats de bijoux avant l'Aïd
+   * - Aïd Al-Adha
+     - +70,7
+     - Pic de demande de bijoux nuptiaux
+   * - Saison des mariages
+     - +48,1
+     - Saison haute de 6 mois (avril–septembre)
+   * - Aïd Al-Fitr
+     - +28,1
+     - Cadeaux de fin de Ramadan
 
-These effects persist after controlling for FX, macro and trend, confirming that
-cultural seasonality is a genuine, independent price driver.
+Ces effets persistent après contrôle du change, de la macro et de la tendance,
+confirmant que la saisonnalité culturelle est un moteur de prix indépendant et réel.
 
-**4. Deep learning (LSTM) and Prophet underperform on this dataset**
+**4. Le deep learning (LSTM) et Prophet sous-performent sur ce jeu de données**
 
-* Prophet achieves MAPE 12.3 % — nearly double SARIMAX.  Its piecewise-linear trend
-  cannot track the sharp regime shifts in the gold price.
-* LSTM achieves R² = 0.750 as a univariate benchmark, which is respectable but clearly
-  below the exogenous statistical models.
+* Prophet atteint un MAPE de 12,3 % — presque le double de SARIMAX. Sa tendance
+  linéaire par morceaux ne peut pas suivre les changements brusques de régime du
+  prix de l'or.
+* Le LSTM atteint un R² de 0,750 comme benchmark univarié, ce qui est respectable
+  mais clairement en dessous des modèles statistiques avec variables exogènes.
 
-**5. Anti-leakage methodology is critical**
+**5. La méthodologie anti-fuite est critique**
 
-The three test suites (``test_leakage_detection.py``, ``test_backtest_integrity.py``,
-``test_xgboost_alignment.py``) demonstrate that naive global imputation or combined-frame
-fitting produces materially different (and optimistic) backtest results.  Every
-performance figure in this project is leak-free.
-
-----
-
-Limitations
------------
-
-**1. High-volatility regime underforecasting**
-
-All models systematically underestimate prices during the 2024–2026 bull run
-(mean bias −772 to −1 573 MAD).  The recent regime is characterised by exceptionally
-fast monthly price increases that fall outside the range of the historical training
-distribution.
-
-**2. FX and macro assumptions in long-horizon forecasting**
-
-Beyond 12 months, the pipeline holds FX and macro regressors at their last observed
-value (``STRICT_EVALUATION_MODE = True``).  Real forecasts would require macro
-projections from BAM or IMF, which carry their own uncertainty.
-
-**3. LSTM is univariate**
-
-The LSTM implementation uses only ``gold_price_mad`` as input.  A multivariate LSTM
-incorporating FX and event regressors might perform comparably to SARIMAX; this
-extension is identified as future work.
-
-**4. Data availability**
-
-The ``macro_indicators.csv`` file relies on proxy constructions when primary BAM and
-FRED feeds are unavailable.  Any proxy mismatch introduces noise into the macro
-regressors.
-
-**5. Prediction interval underestimation**
-
-The residual bootstrap intervals are very tight (< 10 MAD at 22-month horizon).  This
-is because they sample from in-sample residuals, which do not reflect regime-switching
-or structural uncertainty.  A proper predictive interval should incorporate parameter
-uncertainty and scenario analysis.
+Les trois suites de tests (``test_leakage_detection.py``, ``test_backtest_integrity.py``,
+``test_xgboost_alignment.py``) démontrent que l'imputation globale naïve ou
+l'entraînement sur un DataFrame combiné produit des résultats de backtest
+matériellement différents (et optimistes). Chaque chiffre de performance dans ce
+projet est exempt de fuite.
 
 ----
 
-Future work
------------
+Limites
+--------
 
-The following extensions would strengthen the pipeline:
+**1. Sous-estimation en régime de forte volatilité**
+
+Tous les modèles sous-estiment systématiquement les prix durant la hausse 2024–2026
+(biais moyen de −772 à −1 573 MAD). Le régime récent est caractérisé par des
+hausses mensuelles exceptionnellement rapides qui dépassent la plage de la
+distribution historique d'entraînement.
+
+**2. Hypothèses FX et macro pour les prévisions à long horizon**
+
+Au-delà de 12 mois, le pipeline maintient les régresseurs FX et macro à leur
+dernière valeur observée (``STRICT_EVALUATION_MODE = True``). De vraies prévisions
+nécessiteraient des projections macro de BAM ou du FMI, qui comportent leur propre
+incertitude.
+
+**3. Le LSTM est univarié**
+
+L'implémentation LSTM n'utilise que ``gold_price_mad`` comme entrée. Un LSTM
+multivarié incorporant FX et régresseurs événementiels pourrait performer de façon
+comparable à SARIMAX ; cette extension est identifiée comme travail futur.
+
+**4. Disponibilité des données**
+
+Le fichier ``macro_indicators.csv`` repose sur des constructions proxy lorsque les
+flux primaires de BAM et FRED ne sont pas disponibles. Tout décalage de proxy
+introduit du bruit dans les régresseurs macro.
+
+**5. Sous-estimation des intervalles de prévision**
+
+Les intervalles bootstrap sur les résidus sont très étroits (< 10 MAD à l'horizon
+de 22 mois). Cela s'explique par leur échantillonnage depuis les résidus en
+échantillon, qui ne reflètent pas les changements de régime ni l'incertitude
+structurelle. Un intervalle prédictif approprié devrait incorporer l'incertitude
+des paramètres et une analyse de scénarios.
+
+----
+
+Travaux futurs
+---------------
+
+Les extensions suivantes renforceraient le pipeline :
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 70
+   :widths: 32 68
 
    * - Extension
      - Description
-   * - **Multivariate LSTM**
-     - Add FX, event and macro regressors to the LSTM input sequence
+   * - **LSTM multivarié**
+     - Ajouter FX, événements et régresseurs macro à la séquence d'entrée du LSTM
    * - **Transformer / Temporal Fusion**
-     - Explore TFT (Lim et al., 2021) for long-horizon multi-step forecasting with
-       interpretable attention weights
-   * - **Scenario-based forecasting**
-     - Run the pipeline under BAM rate scenarios (stable / hawkish / dovish) and
-       USD/MAD scenarios (appreciation / depreciation paths)
-   * - **Real-time data integration**
-     - Connect to BAM API and World Gold Council feeds for automatic monthly updates
-   * - **Conformal prediction intervals**
-     - Replace residual bootstrap with conformal prediction for distribution-free
-       coverage guarantees
-   * - **Moroccan retail price survey**
-     - Add a direct observation of Moroccan physical gold retail prices to validate
-       the ``gold_price_mad = gold_usd × usd_mad`` identity against market frictions
-       (import taxes, dealer margins)
-   * - **GARCH volatility modelling**
-     - Fit a GARCH(1,1) on SARIMAX residuals to improve the volatility regime signal
-       and produce heteroskedastic prediction intervals
+     - Explorer TFT (Lim et al., 2021) pour la prévision multi-pas à long horizon
+       avec des poids d'attention interprétables
+   * - **Prévisions par scénarios**
+     - Exécuter le pipeline selon des scénarios de taux BAM (stable / hawkish /
+       dovish) et des scénarios USD/MAD (trajectoires d'appréciation / dépréciation)
+   * - **Intégration de données en temps réel**
+     - Connexion à l'API BAM et aux flux World Gold Council pour des mises à jour
+       mensuelles automatiques
+   * - **Intervalles de prévision conformes**
+     - Remplacer le bootstrap sur les résidus par la prédiction conforme pour des
+       garanties de couverture sans hypothèse distributionnelle
+   * - **Enquête sur les prix de détail marocains**
+     - Ajouter une observation directe des prix de détail de l'or physique au Maroc
+       pour valider l'identité ``gold_price_mad = gold_usd × usd_mad`` face aux
+       frictions de marché (taxes à l'importation, marges des revendeurs)
+   * - **Modélisation de la volatilité GARCH**
+     - Ajuster un GARCH(1,1) sur les résidus SARIMAX pour améliorer le signal de
+       régime de volatilité et produire des intervalles de prévision hétéroscédastiques
 
 ----
 
-References
-----------
+Références bibliographiques
+-----------------------------
 
 * Hyndman, R.J., & Athanasopoulos, G. (2021). *Forecasting: Principles and Practice*,
-  3rd edition. OTexts.
-* Taylor, S.J., & Letham, B. (2018). Forecasting at scale. *The American Statistician*, 72(1), 37–45.
+  3e édition. OTexts.
+* Taylor, S.J., & Letham, B. (2018). Forecasting at scale.
+  *The American Statistician*, 72(1), 37–45.
 * Chen, T., & Guestrin, C. (2016). XGBoost: A scalable tree boosting system.
   *ACM KDD*, 785–794.
 * Lim, B., Arık, S.Ö., Loeff, N., & Pfister, T. (2021). Temporal fusion transformers
   for interpretable multi-horizon time series forecasting.
   *International Journal of Forecasting*, 37(4), 1748–1764.
 * Box, G.E.P., Jenkins, G.M., Reinsel, G.C., & Ljung, G.M. (2015).
-  *Time Series Analysis: Forecasting and Control*, 5th edition. Wiley.
+  *Time Series Analysis: Forecasting and Control*, 5e édition. Wiley.
 * Bank Al-Maghrib (2024). *Rapport annuel sur la situation économique, monétaire et
   financière*. BAM.
 
 ----
 
-Reproducibility checklist
---------------------------
+Liste de contrôle pour la reproductibilité
+--------------------------------------------
 
-Before re-running the pipeline:
+Avant de relancer le pipeline :
 
 .. code-block:: bash
 
-   # 1. Verify environment
+   # 1. Vérifier l'environnement
    pip install -r requirements.txt
 
-   # 2. Run unit tests
+   # 2. Lancer les tests unitaires
    pytest tests/ -v
 
-   # 3. Run full pipeline
+   # 3. Lancer le pipeline complet
    python main.py
 
-   # 4. Verify outputs
+   # 4. Vérifier les sorties
    ls results/tables/model_ranking_backtest.csv
    ls results/forecasts/future_forecasts_to_2027_12.csv
    ls results/models/pipeline_run_metadata.json
 
-The ``pipeline_run_metadata.json`` file records the exact package versions, best model,
-feature lists and fold preprocessing parameters used in the run.
+Le fichier ``pipeline_run_metadata.json`` enregistre les versions exactes des packages,
+le meilleur modèle, les listes de features et les paramètres de prétraitement par fold
+utilisés lors de l'exécution.

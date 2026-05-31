@@ -1,212 +1,214 @@
 .. _datasets:
 
-Datasets
-========
+Jeux de données
+===============
 
-All four datasets share a **monthly frequency** with date stamps normalised to
-month-start (``MS``).  The common index runs from **August 2000 to February 2026**
-(307 observations).  No global imputation is applied at load time — missing values
-remain ``NaN`` until fold-level preprocessing.
+Les quatre jeux de données partagent une **fréquence mensuelle** avec des horodatages
+normalisés au début du mois (``MS``). L'index commun couvre **août 2000 à février 2026**
+(307 observations). Aucune imputation globale n'est appliquée au chargement — les valeurs
+manquantes restent ``NaN`` jusqu'au prétraitement par fold.
 
 .. note::
 
-   The data-loading entry point is ``src/preprocessing/data_loader.py``.
-   Call ``load_raw_data()`` to obtain the merged ``DataFrame`` with the target column.
+   Le point d'entrée pour le chargement des données est ``src/preprocessing/data_loader.py``.
+   Appelez ``load_raw_data()`` pour obtenir le ``DataFrame`` fusionné avec la colonne cible.
 
 ----
 
 gold_prices.csv
 ---------------
 
-**International gold spot price in USD per troy ounce.**
+**Cours spot international de l'or en USD par once troy.**
 
 .. list-table::
    :header-rows: 1
    :widths: 20 15 65
 
-   * - Column
+   * - Colonne
      - Type
      - Description
    * - ``date``
      - ``datetime``
-     - Month-start timestamp (e.g. ``2000-08-01``)
+     - Horodatage début de mois (ex. ``2000-08-01``)
    * - ``gold_price_usd``
      - ``float``
-     - Gold price in USD per troy ounce (XAU/USD)
+     - Prix de l'or en USD par once troy (XAU/USD)
 
-**Source:** World Gold Council / Yahoo Finance (``GC=F``).
+**Source :** World Gold Council / Yahoo Finance (``GC=F``).
 
-**Key characteristics:**
+**Caractéristiques principales :**
 
-* Strong upward trend from ~$270 (Aug 2000) to ~$2 900 (Feb 2026).
-* 57 structural changepoints detected by the rolling z-score regime detector.
-* Non-stationary; ADF statistic = +2.30, p-value = 0.999 → differencing required (d = 1).
+* Tendance haussière forte : de ~270 $ (août 2000) à ~2 900 $ (février 2026).
+* 57 points de rupture structurels détectés par le détecteur de régimes z-score glissant.
+* Non stationnaire : statistique ADF = +2,30, p-valeur = 0,999 → différenciation nécessaire (d = 1).
 
 ----
 
 usd_mad.csv
 -----------
 
-**USD / Moroccan Dirham exchange rate.**
+**Taux de change USD / Dirham marocain.**
 
 .. list-table::
    :header-rows: 1
    :widths: 20 15 65
 
-   * - Column
+   * - Colonne
      - Type
      - Description
    * - ``date``
      - ``datetime``
-     - Month-start timestamp
+     - Horodatage début de mois
    * - ``usd_mad``
      - ``float``
-     - Monthly average USD/MAD rate (number of MAD per 1 USD)
+     - Taux de change USD/MAD mensuel moyen (nombre de MAD pour 1 USD)
 
-**Source:** Bank Al-Maghrib (BAM) / World Bank.
+**Source :** Bank Al-Maghrib (BAM) / Banque mondiale.
 
-**Parsing note:** The raw file may use European decimal notation (comma separator).
-The loader applies ``parse_european_decimal()`` from ``src/preprocessing/cleaners.py``.
+**Note de parsing :** Le fichier brut peut utiliser la notation décimale européenne
+(séparateur virgule). Le chargeur applique ``parse_european_decimal()`` depuis
+``src/preprocessing/cleaners.py``.
 
-**Role in the pipeline:**
+**Rôle dans le pipeline :**
 
-The target variable is defined as:
+La variable cible est définie comme :
 
 .. math::
 
    \text{gold\_price\_mad} = \text{gold\_price\_usd} \times \text{usd\_mad}
 
-``usd_mad`` is also used directly as an exogenous regressor in SARIMAX, with a
-SARIMAX coefficient of **+1 048** — the largest exogenous effect in the model.
+``usd_mad`` est également utilisé directement comme régresseur exogène dans SARIMAX,
+avec un coefficient estimé de **+1 048** — le plus grand effet exogène du modèle.
 
 ----
 
 moroccan_events.csv
 -------------------
 
-**Monthly intensity of Moroccan socio-cultural events (scale 0 – 1).**
+**Intensité mensuelle des événements socio-culturels marocains (échelle 0 – 1).**
 
 .. list-table::
    :header-rows: 1
-   :widths: 22 15 63
+   :widths: 22 12 66
 
-   * - Column
-     - Range
+   * - Colonne
+     - Plage
      - Description
    * - ``date``
      - —
-     - Month-start timestamp
+     - Horodatage début de mois
    * - ``ramadan``
      - [0, 1]
-     - Fractional overlap of the Ramadan lunar month with the calendar month.
-       Jewellery purchases peak before Aïd Al-Fitr; SARIMAX coefficient = **+70.7**.
+     - Chevauchement fractionnaire du mois lunaire du Ramadan avec le mois calendaire.
+       Les achats de bijoux culminent avant l'Aïd Al-Fitr ; coefficient SARIMAX = **+22,0**.
    * - ``eid_alfitr``
      - [0, 1]
-     - Aïd Al-Fitr intensity.  Concentration of gift-giving drives short gold-demand
-       spikes; coefficient = **+22.0**.
+     - Intensité de l'Aïd Al-Fitr. La concentration des cadeaux génère des pics courts
+       de demande d'or ; coefficient = **+28,1**.
    * - ``eid_aladha``
      - [0, 1]
-     - Aïd Al-Adha intensity.  Spending redirected toward livestock; weaker gold impact
-       (coefficient = **+48.1** for ``wedding_season``).
+     - Intensité de l'Aïd Al-Adha. Les dépenses se dirigent vers le bétail ;
+       impact moindre sur l'or ; coefficient = **+70,7**.
    * - ``wedding_season``
      - [0, 1]
-     - April–September Moroccan wedding season.  Bridal gold jewellery constitutes a
-       significant fraction of the marriage gift (*mahr*).
+     - Saison des mariages marocains (avril–septembre). Les bijoux en or constituent
+       une part importante de la dot (*mahr*) ; coefficient = **+48,1**.
    * - ``mre_season``
      - [0, 1]
-     - Return season of Moroccan Residents Abroad (June–August). Cash remittances
-       converted to MAD boost domestic gold demand.
+     - Saison de retour des Marocains Résidant à l'Étranger (juin–août). Les transferts
+       d'argent convertis en MAD stimulent la demande locale d'or.
 
-**Source:** Islamic calendar computation + local market surveys.
+**Source :** Calcul du calendrier islamique + enquêtes de marché locales.
 
-**Usage in future forecasts:**
+**Utilisation dans les prévisions futures :**
 
-Event columns are forward-projected using a *seasonal profile* approach
-(``src/feature_engineering/exogenous_future.py``):
+Les colonnes événementielles sont projetées vers l'avenir selon une approche de
+*profil saisonnier* (``src/feature_engineering/exogenous_future.py``) :
 
-* Compute the historical average intensity per calendar month (month-of-year mean).
-* Blend 70 % long-run average with 30 % last-year observed pattern.
-* Clip to [0, 1].
+* Calcul de l'intensité historique moyenne par mois calendaire (moyenne par mois de l'année).
+* Mélange à 70 % de la moyenne long terme et 30 % du schéma observé l'année précédente.
+* Écrêtage à [0, 1].
 
 ----
 
 macro_indicators.csv
 --------------------
 
-**Optional macroeconomic regressors — built on demand.**
+**Régresseurs macroéconomiques optionnels — construits à la demande.**
 
 .. list-table::
    :header-rows: 1
    :widths: 25 12 63
 
-   * - Column
-     - Unit
+   * - Colonne
+     - Unité
      - Description
    * - ``oil_brent_usd``
-     - USD/bbl
-     - Brent crude monthly average.  Positive co-movement with gold as a commodity.
-       SARIMAX coefficient = **−17.7** (substitution / risk-on effect).
+     - USD/baril
+     - Moyenne mensuelle du pétrole Brent. Co-mouvement positif avec l'or en tant que
+       matière première. Coefficient SARIMAX = **−17,7** (effet substitution / risk-on).
    * - ``dxy_index``
-     - Index
-     - US Dollar Index (DXY).  Strong negative correlation with USD gold price
-       (−0.75 in the correlation matrix); SARIMAX coefficient = **−79.2**.
+     - Indice
+     - Indice du dollar américain (DXY). Forte corrélation négative avec le prix de
+       l'or en USD (−0,75 dans la matrice de corrélation) ; coefficient = **−79,2**.
    * - ``fed_funds_rate``
      - %
-     - Effective Federal Funds Rate.  Higher US rates increase the opportunity cost of
-       holding gold; coefficient = **−0.29**.
+     - Taux des fonds fédéraux effectif. Des taux US plus élevés augmentent le coût
+       d'opportunité de détenir de l'or ; coefficient = **−0,29**.
    * - ``inflation_morocco``
-     - % YoY
-     - Moroccan CPI inflation.  Used as a demand-side pressure indicator.
+     - % en glissement annuel
+     - Inflation IPC au Maroc. Utilisée comme indicateur de pression côté demande.
    * - ``policy_rate_bam``
      - %
-     - Bank Al-Maghrib policy rate.  Endogenous response to inflation; correlated with
-       ``inflation_morocco`` (see correlation matrix).
+     - Taux directeur de Bank Al-Maghrib. Réponse endogène à l'inflation ; corrélé à
+       ``inflation_morocco`` (voir matrice de corrélation).
 
-**Building the macro file:**
+**Construction du fichier macro :**
 
 .. code-block:: bash
 
    python main.py --build-macro
 
-This runs ``src/preprocessing/build_macro.py``, which fetches Brent and DXY from
-``yfinance`` and constructs proxy series for Fed Funds, Moroccan inflation, and BAM rate.
-If ``yfinance`` is unavailable, all macro columns are filled with ``NaN`` and the pipeline
-gracefully falls back to event-only exogenous regressors.
+Cette commande exécute ``src/preprocessing/build_macro.py``, qui récupère le Brent et
+le DXY depuis ``yfinance`` et construit des séries proxy pour le taux Fed, l'inflation
+marocaine et le taux BAM. Si ``yfinance`` n'est pas disponible, toutes les colonnes macro
+sont remplies avec ``NaN`` et le pipeline utilise uniquement les régresseurs événementiels.
 
-**Missing-value treatment:**
+**Traitement des valeurs manquantes :**
 
-Macro columns are **not** globally imputed.  Missing values at fold boundaries are handled
-by ``FoldPreprocessor`` (see :ref:`preprocessing`):
+Les colonnes macro ne sont **pas** imputées globalement. Les valeurs manquantes aux
+frontières des folds sont gérées par ``FoldPreprocessor``
+(voir :ref:`preprocessing`) :
 
-* *Training half*: forward-fill within fold, then fill remaining gaps with the
-  fold-level median.
-* *Test half*: carry-forward from the last observed training value; never back-fill
-  from future test observations.
+* *Moitié entraînement* : remplissage par propagation vers l'avant dans le fold,
+  puis remplissage des ``NaN`` restants avec la médiane calculée sur le fold d'entraînement.
+* *Moitié test* : report de la dernière valeur observée en entraînement ; jamais de
+  remplissage en arrière depuis les observations futures.
 
 ----
 
-Derived target column
----------------------
+Colonne cible dérivée
+-----------------------
 
-After merging the four sources, the loader computes:
+Après fusion des quatre sources, le chargeur calcule :
 
 .. code-block:: python
 
    df["gold_price_mad"] = df["gold_price_usd"] * df["usd_mad"]
 
-This column is the **sole forecasting target**.  All features and model outputs are expressed
-in MAD per troy ounce.
+Cette colonne est le **seul objectif de prévision**. Toutes les features et sorties de
+modèles sont exprimées en MAD par once troy.
 
-Summary statistics (full sample)
----------------------------------
+Statistiques descriptives (échantillon complet)
+------------------------------------------------
 
 .. list-table::
    :header-rows: 1
    :widths: 30 18 18 18 16
 
-   * - Series
+   * - Série
      - Min
-     - Mean
+     - Moyenne
      - Max
      - Obs.
    * - ``gold_price_usd``
@@ -215,9 +217,9 @@ Summary statistics (full sample)
      - ~2 940
      - 307
    * - ``usd_mad``
-     - ~8.5
-     - ~9.6
-     - ~10.8
+     - ~8,5
+     - ~9,6
+     - ~10,8
      - 307
    * - ``gold_price_mad``
      - ~2 300

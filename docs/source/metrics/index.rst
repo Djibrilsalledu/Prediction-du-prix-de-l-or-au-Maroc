@@ -1,55 +1,56 @@
 .. _metrics:
 
-Metrics Reference
-=================
+Référence des métriques
+========================
 
-All evaluation metrics are implemented in ``src/evaluation/metrics.py``.
+Toutes les métriques d'évaluation sont implémentées dans ``src/evaluation/metrics.py``.
 
-Alignment
----------
+Alignement des séries
+----------------------
 
-Before computing any metric, ``_align(y_true, y_pred)`` intersects the two series on
-their index, converts to ``float64``, and drops any row where either value is ``NaN``.
-This prevents silent errors from index mismatches between fold outputs.
+Avant tout calcul de métrique, ``_align(y_true, y_pred)`` intersecte les deux séries
+sur leur index, convertit en ``float64``, et supprime toute ligne où l'une ou l'autre
+valeur est ``NaN``. Cela prévient les erreurs silencieuses liées aux désalignements
+d'index entre les sorties des folds.
 
 ----
 
-Core metrics
-------------
+Métriques principales
+----------------------
 
-RMSE — Root Mean Squared Error
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+RMSE — Racine de l'Erreur Quadratique Moyenne
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. math::
 
    \text{RMSE} = \sqrt{\frac{1}{n} \sum_{t=1}^{n} (y_t - \hat{y}_t)^2}
 
-Penalises large errors quadratically.  The primary ranking metric for model selection
-because it is sensitive to the occasional large miss that matters most in practice.
-Expressed in MAD per troy ounce.
+Pénalise les grandes erreurs de façon quadratique. C'est la **métrique principale de
+classement** pour la sélection des modèles car elle est sensible aux rares grandes
+erreurs qui comptent le plus en pratique. Exprimée en MAD par once troy.
 
-MAE — Mean Absolute Error
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+MAE — Erreur Absolue Moyenne
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. math::
 
    \text{MAE} = \frac{1}{n} \sum_{t=1}^{n} |y_t - \hat{y}_t|
 
-More robust to outliers than RMSE.  Expressed in MAD.
+Plus robuste aux valeurs aberrantes que le RMSE. Exprimée en MAD.
 
-MAPE — Mean Absolute Percentage Error
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MAPE — Erreur Absolue Moyenne en Pourcentage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. math::
 
    \text{MAPE} = \frac{100}{n} \sum_{t=1}^{n} \left| \frac{y_t - \hat{y}_t}{y_t} \right|
 
-Scale-free; useful for comparing across periods with different price levels.
-The best model (SARIMAX) achieves **6.49 %** mean MAPE, meaning typical monthly
-forecast errors are about 6.5 % of the actual price.
+Adimensionnelle ; utile pour comparer sur des périodes avec des niveaux de prix
+différents. Le meilleur modèle (SARIMAX) atteint **6,49 %** de MAPE moyen, ce qui
+signifie que les erreurs mensuelles typiques représentent environ 6,5 % du prix réel.
 
-R² — Coefficient of Determination
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+R² — Coefficient de détermination
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. math::
 
@@ -57,95 +58,99 @@ R² — Coefficient of Determination
 
 .. warning::
 
-   For rolling backtest evaluation, R² is computed relative to the **OOS mean** (the
-   mean of the test-fold actuals), not the global mean.  Because the gold price trends
-   strongly upward, the OOS mean is always far from the actual values, yielding **negative
-   R²** for all models even when forecasts are accurate.
+   Pour l'évaluation par backtest glissant, le R² est calculé par rapport à la
+   **moyenne hors échantillon** (la moyenne des valeurs actuelles du fold de test),
+   pas la moyenne globale. Comme le prix de l'or est fortement croissant, la moyenne
+   OOS est toujours très éloignée des valeurs réelles, ce qui donne un **R² négatif**
+   pour tous les modèles même lorsque les prévisions sont précises.
 
-   The **bootstrap R²** (computed on pooled OOS predictions) is the more meaningful
-   measure: SARIMAX achieves 0.859 [0.827 – 0.892].
+   Le **R² bootstrap** (calculé sur les prévisions OOS regroupées) est la mesure la
+   plus pertinente : SARIMAX atteint 0,859 [0,827 – 0,892].
 
-Bias
-~~~~~
-
-.. math::
-
-   \text{Bias} = \frac{1}{n} \sum_{t=1}^{n} (\hat{y}_t - y_t)
-
-Signed average prediction error.  Positive = systematic over-forecast;
-negative = under-forecast.  All models exhibit negative bias (−772 to −1 573 MAD),
-reflecting the difficulty of capturing the 2024–2025 bull run momentum.
-
-Directional Accuracy
-~~~~~~~~~~~~~~~~~~~~~
+Biais
+~~~~~~
 
 .. math::
 
-   \text{DA} = \frac{100}{n-1} \sum_{t=2}^{n}
-   \mathbf{1}\!\left[\text{sign}(y_t - y_{t-1}) = \text{sign}(\hat{y}_t - \hat{y}_{t-1})\right]
+   \text{Biais} = \frac{1}{n} \sum_{t=1}^{n} (\hat{y}_t - y_t)
 
-Percentage of months where the model correctly predicts the direction of price movement
-(up or down).  A random forecast scores ~50 %.
+Erreur de prévision moyenne signée. Positif = surestimation systématique ;
+négatif = sous-estimation. Tous les modèles présentent un biais négatif (−772 à
+−1 573 MAD), reflétant la difficulté à capturer le momentum de la hausse 2024–2025.
 
-SARIMAX and XGBoost both achieve **60.9 %** directional accuracy — roughly 11 percentage
-points above random.
+Précision directionnelle
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. math::
+
+   \text{PD} = \frac{100}{n-1} \sum_{t=2}^{n}
+   \mathbf{1}\!\left[\text{signe}(y_t - y_{t-1}) = \text{signe}(\hat{y}_t - \hat{y}_{t-1})\right]
+
+Pourcentage de mois où le modèle prédit correctement le sens du mouvement de prix
+(hausse ou baisse). Une prévision aléatoire atteint ~50 %.
+
+SARIMAX et XGBoost atteignent tous deux **60,9 %** de précision directionnelle —
+environ 11 points de pourcentage au-dessus de l'aléatoire.
 
 ----
 
-Bootstrap confidence intervals
---------------------------------
+Intervalles de confiance bootstrap
+------------------------------------
 
-Implemented in ``src/evaluation/bootstrap.py`` using 500 resampling iterations with
-``np.random.default_rng(42)`` for reproducibility.
+Implémentés dans ``src/evaluation/bootstrap.py`` avec 500 itérations de rééchantillonnage
+et ``np.random.default_rng(42)`` pour la reproductibilité.
 
 .. code-block:: python
 
    from src.evaluation.bootstrap import bootstrap_metric_ci, bootstrap_all_models
 
-   ci = bootstrap_metric_ci(y_true, y_pred, metric="rmse", n_samples=500)
-   # Returns {"point": ..., "low": ..., "high": ...}
+   ic = bootstrap_metric_ci(y_true, y_pred, metric="rmse", n_samples=500)
+   # Retourne {"point": ..., "low": ..., "high": ...}
 
-   df = bootstrap_all_models(y_true, predictions_dict)
-   # Returns a long-format DataFrame with columns: model, metric, point, ci_low, ci_high
+   df = bootstrap_all_models(y_true, dict_previsions)
+   # Retourne un DataFrame en format long : model, metric, point, ci_low, ci_high
 
 ----
 
-Naive baselines
----------------
+Références naïves
+------------------
 
-Three naive baselines are included in every backtest fold to contextualise model
-performance (``src/evaluation/baselines.py``):
+Trois références naïves sont incluses dans chaque fold du backtest pour contextualiser
+les performances des modèles (``src/evaluation/baselines.py``) :
 
 .. list-table::
    :header-rows: 1
-   :widths: 25 75
+   :widths: 28 72
 
-   * - Baseline
+   * - Référence
      - Description
-   * - ``Baseline_LastValue``
-     - Repeats the last observed training value for all *h* steps.
-       Achieves 0 % directional accuracy by construction.
-   * - ``Baseline_TrainMean``
-     - Uses the training-fold mean for all *h* steps.
-       Worst overall model (MAPE 44.8 %).
-   * - ``Baseline_Drift``
-     - Projects a constant linear trend from the first to the last training value.
-       Competitive with SARIMAX on RMSE (1 487) and directional accuracy (60.9 %) —
-       highlighting how much of gold's forecastability comes from its strong trend.
+   * - ``Référence_DernièreValeur``
+     - Répète la dernière valeur d'entraînement observée pour tous les *h* pas.
+       Atteint 0 % de précision directionnelle par construction.
+   * - ``Référence_MoyenneEntraînement``
+     - Utilise la moyenne du fold d'entraînement pour tous les *h* pas.
+       Pire modèle global (MAPE 44,8 %).
+   * - ``Référence_Drift``
+     - Projette une tendance linéaire constante du premier au dernier point
+       d'entraînement. Compétitif avec SARIMAX sur le RMSE (1 487) et la précision
+       directionnelle (60,9 %) — soulignant à quel point la prévisibilité de l'or
+       provient de sa forte tendance.
 
 ----
 
-Pooled vs fold-averaged metrics
----------------------------------
+Métriques regroupées vs moyennées par fold
+-------------------------------------------
 
-Two aggregation modes are supported:
+Deux modes d'agrégation sont supportés :
 
-**Fold-averaged** (``model_ranking_backtest.csv``):
-   Compute the metric independently for each fold's 12-month window, then take the
-   arithmetic mean and standard deviation across folds.
-   Robust to fold-level heteroskedasticity; the primary ranking metric.
+**Moyennées par fold** (``model_ranking_backtest.csv``) :
+   Calcule la métrique indépendamment pour la fenêtre de 12 mois de chaque fold, puis
+   prend la moyenne arithmétique et l'écart-type sur les folds. Robuste à
+   l'hétéroscédasticité au niveau des folds ; c'est la **métrique de classement
+   principale**.
 
-**Pooled OOS** (``model_ranking_pooled_oos.csv``):
-   Concatenate all 10 × 12 = 120 test observations into a single series and compute
-   the metric once.  More sensitive to recent high-volatility folds (which dominate the
-   pooled residuals) but provides a single-number performance summary.
+**OOS regroupé** (``model_ranking_pooled_oos.csv``) :
+   Concatène toutes les 10 × 12 = 120 observations de test en une seule série et
+   calcule la métrique une fois. Plus sensible aux folds récents à forte volatilité
+   (qui dominent les résidus regroupés) mais fournit un résumé de performance en
+   un seul chiffre.

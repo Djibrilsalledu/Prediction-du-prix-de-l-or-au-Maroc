@@ -1,70 +1,67 @@
-.. Moroccan Gold Price Forecasting documentation master file
+.. Documentation principale — Prévision des Prix de l'Or au Maroc
 
-Moroccan Gold Price Forecasting
-================================
+Prévision des Prix de l'Or au Maroc
+=====================================
 
 .. image:: https://img.shields.io/badge/python-3.10%2B-blue
    :alt: Python 3.10+
 
-.. image:: https://img.shields.io/badge/license-Academic-green
-   :alt: Academic License
+.. image:: https://img.shields.io/badge/statut-Recherche-orange
+   :alt: Recherche académique
 
-.. image:: https://img.shields.io/badge/status-Research-orange
-   :alt: Research
+**Système de prévision mensuelle des prix de l'or en Dirham marocain (MAD) — niveau académique.**
 
-**Academic-grade monthly time series forecasting system for Moroccan gold prices (MAD).**
-
-This project combines classical econometrics, modern machine learning and deep learning to
-forecast the price of gold in Moroccan Dirhams (MAD) at monthly frequency from August 2000
-through December 2027.  The pipeline is fully reproducible, strictly prevents data leakage,
-and produces static figures, tables, and CSV forecasts — no dashboard or web UI.
+Ce projet combine l'économétrie classique, le machine learning et le deep learning pour
+prévoir le prix de l'or au Maroc à fréquence mensuelle, d'août 2000 à décembre 2027.
+Le pipeline est entièrement reproductible, prévient strictement toute fuite de données,
+et produit des figures statiques, des tableaux et des prévisions CSV — sans tableau de bord ni interface web.
 
 .. note::
 
-   Author: **Djibril SALL** — École Nationale Supérieure d'Arts et Métiers (ENSAM)
+   **Auteur :** Djibril SALL — École Nationale Supérieure d'Arts et Métiers (ENSAM)
 
-   Supervisor: **Pr. Tawfik Masrour**
+   **Encadrant :** Pr. Tawfik Masrour
 
 ----
 
-Quick start
------------
+Démarrage rapide
+-----------------
 
 .. code-block:: bash
 
-   # Clone and install
+   # Cloner et installer
    python -m venv .venv
-   .venv\Scripts\activate      # Windows
+   .venv\Scripts\activate       # Windows
    # source .venv/bin/activate  # Linux / macOS
    pip install -r requirements.txt
 
-   # Run the full pipeline
+   # Lancer le pipeline complet
    python main.py
 
-   # Optional: download macro indicators via yfinance
+   # Optionnel : télécharger les indicateurs macro via yfinance
    python main.py --build-macro
 
-   # Skip backtesting, regenerate forecasts only
+   # Régénérer uniquement les prévisions (sans le backtest)
    python main.py --forecast-only
 
-After a successful run, results are written to:
+Après une exécution réussie, les résultats sont écrits dans :
 
-* ``results/figures/``  — EDA, diagnostics, actual-vs-predicted, residuals
-* ``results/tables/``   — model rankings, bootstrap CIs, fold stability
-* ``results/forecasts/`` — future forecasts to 2027-12 (CSV)
-* ``results/models/``   — pipeline metadata JSON, analysis report
+* ``results/figures/``   — EDA, diagnostics, réel vs prédit, résidus
+* ``results/tables/``    — classements des modèles, intervalles de confiance bootstrap, stabilité par fold
+* ``results/forecasts/`` — prévisions futures jusqu'en décembre 2027 (CSV)
+* ``results/models/``    — métadonnées JSON du pipeline, rapport d'analyse
 
 ----
 
 .. toctree::
    :maxdepth: 2
-   :caption: Project overview
+   :caption: Présentation du projet
 
    presentation
 
 .. toctree::
    :maxdepth: 2
-   :caption: User guide
+   :caption: Guide utilisateur
 
    datasets
    preprocessing
@@ -74,7 +71,7 @@ After a successful run, results are written to:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Reference
+   :caption: Référence
 
    metrics/index
    models/index
@@ -82,63 +79,63 @@ After a successful run, results are written to:
 
 ----
 
-Key results at a glance
------------------------
+Résultats clés
+--------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 22 15 15 12 16 15
+   :widths: 26 14 14 12 16 12
 
-   * - Model
-     - RMSE mean
-     - MAE mean
+   * - Modèle
+     - RMSE moy.
+     - MAE moy.
      - MAPE %
      - Dir. Acc. %
-     - Bias mean
+     - Biais
    * - **SARIMAX ★**
      - **1 478**
      - **1 230**
-     - **6.49**
-     - 60.9
+     - **6,49**
+     - 60,9
      - −797
    * - ARIMA
      - 1 536
      - 1 296
-     - 6.92
-     - 55.5
+     - 6,92
+     - 55,5
      - −865
-   * - Hybrid ARIMA+XGB
+   * - Hybride ARIMA+XGB
      - 1 544
      - 1 319
-     - 7.26
-     - 58.2
+     - 7,26
+     - 58,2
      - −772
    * - SARIMA
      - 1 616
      - 1 363
-     - 7.42
-     - 54.5
+     - 7,42
+     - 54,5
      - −927
    * - XGBoost
      - 1 759
      - 1 525
-     - 7.92
-     - 60.9
+     - 7,92
+     - 60,9
      - −1 438
-   * - LSTM (univariate)
+   * - LSTM (univarié)
      - 1 979
      - 1 741
-     - 9.10
-     - 47.3
+     - 9,10
+     - 47,3
      - −1 573
    * - Prophet
      - 2 406
      - 2 026
-     - 12.30
-     - 46.4
+     - 12,30
+     - 46,4
      - −1 100
 
-*Metrics averaged over 10 expanding-window folds (2015–2025, 12-month test horizon each).*
+*Métriques moyennées sur 10 folds en fenêtre expansive (2015–2025, horizon de test de 12 mois par fold).*
 
-**Recommended production model:** ``Ensemble_Weighted``
-(inverse-RMSE blend of SARIMAX + XGBoost + Hybrid ARIMA-XGBoost).
+**Modèle recommandé en production :** ``Ensemble_Weighted``
+(combinaison pondérée par l'inverse du RMSE : SARIMAX + XGBoost + Hybride ARIMA-XGBoost).

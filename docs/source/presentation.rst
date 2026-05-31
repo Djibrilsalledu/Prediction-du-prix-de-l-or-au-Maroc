@@ -1,70 +1,73 @@
 .. _presentation:
 
-Project Presentation
-====================
+Présentation du projet
+======================
 
-Context & Motivation
---------------------
+Contexte et motivation
+-----------------------
 
-Gold is universally regarded as a safe-haven asset and inflation hedge.  Its price in
-international markets (USD per troy ounce) has risen more than **750 %** between 2000 and
-early 2026.  In Morocco, however, the effective price paid by consumers and traders is not
-the USD spot price but rather its **MAD equivalent**:
+L'or est universellement considéré comme une valeur refuge et une protection contre
+l'inflation. Son prix sur les marchés internationaux (USD par once troy) a progressé de
+plus de **750 %** entre 2000 et début 2026. Au Maroc, cependant, le prix effectivement
+payé par les consommateurs et les négociants n'est pas le cours spot en USD, mais son
+**équivalent en MAD** :
 
 .. math::
 
    \text{gold\_price\_mad} = \text{gold\_price\_usd} \times \text{usd\_mad}
 
-This double exposure — to the international commodity market **and** to the USD/MAD exchange
-rate — creates a forecasting problem that is specific to the Moroccan market and has not been
-studied in a dedicated academic pipeline.
+Cette double exposition — au marché mondial des matières premières **et** au taux de change
+USD/MAD — crée un problème de prévision spécifique au marché marocain qui n'a pas encore
+fait l'objet d'un pipeline académique dédié.
 
-Why Morocco?
-~~~~~~~~~~~~
+Pourquoi le Maroc ?
+~~~~~~~~~~~~~~~~~~~
 
-Morocco presents three distinctive features that make gold-price forecasting particularly
-interesting:
+Le Maroc présente trois caractéristiques distinctives qui rendent la prévision du prix de
+l'or particulièrement intéressante :
 
-1. **Socio-cultural demand cycles** — Ramadan, Aïd Al-Fitr, Aïd Al-Adha, the wedding season
-   (April–September) and the MRE (Moroccan Residents abroad) return season generate
-   predictable monthly spikes in jewellery demand that feed through to local gold prices.
+1. **Cycles de demande socio-culturels** — Le Ramadan, l'Aïd Al-Fitr, l'Aïd Al-Adha,
+   la saison des mariages (avril–septembre) et la saison de retour des MRE (Marocains
+   Résidant à l'Étranger) génèrent des pics mensuels prévisibles de la demande en
+   bijouterie qui se répercutent sur les prix locaux de l'or.
 
-2. **FX sensitivity** — The MAD is managed against a currency basket dominated by the EUR and
-   USD.  A strong dollar simultaneously lifts the USD gold price and weakens the MAD, creating
-   compounding effects on ``gold_price_mad``.
+2. **Sensibilité au taux de change** — Le MAD est géré par rapport à un panier de devises
+   dominé par l'EUR et l'USD. Un dollar fort élève simultanément le cours USD de l'or et
+   affaiblit le MAD, créant des effets composés sur ``gold_price_mad``.
 
-3. **Macro policy context** — Bank Al-Maghrib (BAM) interest-rate decisions and domestic
-   inflation interact with import-cost dynamics in ways that differ from advanced economies.
+3. **Contexte de politique macro** — Les décisions de taux de Bank Al-Maghrib (BAM) et
+   l'inflation domestique interagissent avec les dynamiques de coûts à l'importation
+   d'une manière différente de celle des économies avancées.
 
-Research objectives
--------------------
+Objectifs de recherche
+-----------------------
 
-The project answers four questions:
+Le projet répond à quatre questions :
 
-* Can classical econometric models (ARIMA, SARIMA, SARIMAX) outperform machine-learning
-  baselines (XGBoost, LSTM) for monthly Moroccan gold prices?
-* Do Moroccan socio-cultural event indicators provide statistically significant predictive
-  power when added as exogenous regressors?
-* What is the optimal ensemble strategy for a 12-to-24-month production forecast?
-* How does trend stabilisation (damping, mean reversion) affect long-horizon economic
-  plausibility?
+* Les modèles économétriques classiques (ARIMA, SARIMA, SARIMAX) surpassent-ils les
+  références en machine learning (XGBoost, LSTM) pour les prix mensuels de l'or au Maroc ?
+* Les indicateurs d'événements socio-culturels marocains apportent-ils un pouvoir prédictif
+  statistiquement significatif lorsqu'ils sont ajoutés comme régresseurs exogènes ?
+* Quelle est la stratégie d'ensemble optimale pour une prévision de production à 12–24 mois ?
+* Comment la stabilisation de tendance (amortissement, retour à la moyenne) améliore-t-elle
+  la plausibilité économique des prévisions à long horizon ?
 
-Academic framework
-------------------
-
-This project was carried out at the **École Nationale Supérieure d'Arts et Métiers (ENSAM)**
-under the supervision of **Pr. Tawfik Masrour**.
-
-* **Author**: Djibril SALL
-* **Level**: Engineering student (Élève-Ingénieur)
-* **Scope**: Academic research / reproducible pipeline
-
-Project structure
+Cadre académique
 -----------------
+
+Ce projet a été réalisé à l'**École Nationale Supérieure d'Arts et Métiers (ENSAM)**
+sous la direction de **Pr. Tawfik Masrour**.
+
+* **Auteur** : Djibril SALL
+* **Niveau** : Élève-Ingénieur
+* **Portée** : Recherche académique / pipeline reproductible
+
+Structure du projet
+--------------------
 
 .. code-block:: text
 
-   project/
+   projet/
    ├── data/
    │   ├── gold_prices.csv
    │   ├── usd_mad.csv
@@ -73,12 +76,12 @@ Project structure
    ├── notebooks/
    │   └── 01_exploratory_analysis.ipynb
    ├── src/
-   │   ├── preprocessing/        # data loading, cleaning, fold preprocessor
-   │   ├── feature_engineering/  # lag/roll features, event encoding, exog future
+   │   ├── preprocessing/        # chargement des données, nettoyage, préprocesseur par fold
+   │   ├── feature_engineering/  # features lag/roll, encodage événements, exogènes futurs
    │   ├── models/               # ARIMA, SARIMA, SARIMAX, Prophet, XGBoost, LSTM, Ensemble
-   │   ├── evaluation/           # backtesting, metrics, bootstrap CI, stability
-   │   ├── forecasting/          # pipeline orchestrator, calibration, trend stabilisation
-   │   └── utils/                # config, alignment checks, plotting, reproducibility
+   │   ├── evaluation/           # backtesting, métriques, IC bootstrap, stabilité
+   │   ├── forecasting/          # orchestrateur pipeline, calibration, stabilisation tendance
+   │   └── utils/                # config, vérifications d'alignement, graphiques, reproductibilité
    ├── results/
    │   ├── figures/
    │   ├── tables/
@@ -92,66 +95,68 @@ Project structure
    ├── requirements.txt
    └── README.md
 
-Pipeline overview
------------------
+Vue d'ensemble du pipeline
+---------------------------
 
-The pipeline runs in a single command (``python main.py``) and executes the following stages:
+Le pipeline s'exécute en une seule commande (``python main.py``) et enchaîne les étapes
+suivantes :
 
 .. list-table::
    :header-rows: 1
    :widths: 5 25 45 25
 
    * - #
-     - Stage
+     - Étape
      - Description
-     - Output
+     - Sortie
    * - 1
-     - **Data loading**
-     - Merge gold, FX, events and macro; compute ``gold_price_mad``; no global imputation
-     - Raw ``DataFrame``
+     - **Chargement des données**
+     - Fusion or, FX, événements et macro ; calcul de ``gold_price_mad`` ; pas d'imputation globale
+     - ``DataFrame`` brut
    * - 2
-     - **EDA diagnostics**
-     - Correlation matrix, seasonal decomposition, ADF test, ACF/PACF, event impact plots
+     - **Diagnostics EDA**
+     - Matrice de corrélation, décomposition saisonnière, test ADF, ACF/PACF, graphiques d'impact événementiel
      - ``results/figures/``
    * - 3
-     - **Regime detection**
-     - Rolling z-score changepoints (57 detected), volatility regime, trend strength
+     - **Détection de régimes**
+     - Points de rupture par z-score glissant (57 détectés), régime de volatilité, force de tendance
      - ``regime_adf_segments.csv``
    * - 4
-     - **Rolling backtest**
-     - 10 expanding-window folds; fold-aware preprocessing; all models + baselines
+     - **Backtest glissant**
+     - 10 folds en fenêtre expansive ; prétraitement par fold ; tous modèles + références naïves
      - ``rolling_cv_by_fold.csv``
    * - 5
-     - **Model comparison**
-     - RMSE/MAE/MAPE/R²/bias/directional accuracy; bootstrap 95 % CI (500 samples)
+     - **Comparaison des modèles**
+     - RMSE/MAE/MAPE/R²/biais/précision directionnelle ; IC bootstrap à 95 % (500 échantillons)
      - ``model_ranking_backtest.csv``, ``metrics_bootstrap_ci.csv``
    * - 6
-     - **Log vs level**
-     - Backtest ARIMA/Prophet/XGBoost in log-target space; pick best transform per model
+     - **Log vs niveau**
+     - Backtest ARIMA/Prophet/XGBoost en espace log ; choix de la meilleure transformation par modèle
      - ``log_vs_level_comparison.csv``
    * - 7
-     - **Future forecast**
-     - Full-sample re-fit; trend damping φ=0.92; bias correction; Ensemble_Weighted
+     - **Prévision future**
+     - Réentraînement sur l'échantillon complet ; amortissement de tendance φ=0,92 ; correction de biais ; Ensemble_Weighted
      - ``future_forecasts_to_2027_12.csv``
    * - 8
-     - **Probabilistic intervals**
-     - Residual bootstrap fan chart (95 % PI)
+     - **Intervalles probabilistes**
+     - Éventail bootstrap sur les résidus (IC à 95 %)
      - ``forecast_intervals_2027_12.csv``
    * - 9
-     - **Report**
-     - Markdown analysis report + JSON pipeline metadata
+     - **Rapport**
+     - Rapport d'analyse Markdown + métadonnées JSON du pipeline
      - ``analysis_report.md``, ``pipeline_run_metadata.json``
 
-Reproducibility
----------------
+Reproductibilité
+-----------------
 
-A fixed random seed (``RANDOM_SEED = 42``) is applied to NumPy, Python's ``random`` module,
-and TensorFlow at the start of every run via ``src/utils/reproducibility.py``.
+Une graine aléatoire fixe (``RANDOM_SEED = 42``) est appliquée à NumPy, au module
+``random`` de Python et à TensorFlow au début de chaque exécution via
+``src/utils/reproducibility.py``.
 
-The full package-version fingerprint is saved to ``results/models/pipeline_run_metadata.json``
-on each run.
+L'empreinte complète des versions de packages est sauvegardée dans
+``results/models/pipeline_run_metadata.json`` à chaque exécution.
 
-Run the test suite to verify pipeline integrity before any experiment:
+Exécutez la suite de tests pour vérifier l'intégrité du pipeline avant toute expérience :
 
 .. code-block:: bash
 
